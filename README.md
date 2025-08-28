@@ -100,7 +100,7 @@ data:
         Time_Key    timestamp
         Time_Format %Y-%m-%dT%H:%M:%S%z
 
----
+---```
 
 ## 🚀 Workflow
 
@@ -180,4 +180,4 @@ spec:
   - name: fluent-bit-config
     configMap:
       name: fluent-bit
-
+```
