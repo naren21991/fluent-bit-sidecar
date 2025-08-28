@@ -99,3 +99,85 @@ data:
         Format      json
         Time_Key    timestamp
         Time_Format %Y-%m-%dT%H:%M:%S%z
+
+---
+
+## 🚀 Workflow
+
+1. **Log Generation**  
+   - The application container writes logs to `/var/log/<app>/`.
+   - Logs may be plain text, JSON, or custom formats.
+
+2. **Log Collection**  
+   - Fluent Bit tails the log file using the `tail` input plugin.
+   - If structured (JSON), logs are parsed using the `json` parser.
+
+3. **Log Forwarding**  
+   - Fluent Bit sends logs to the configured backend (e.g., OpenSearch).
+   - Credentials and connection details come from environment variables.
+
+4. **Error Handling**  
+   - Fluent Bit buffers logs in memory or on disk during backend outages.
+   - Retries are handled automatically per plugin configuration.
+
+---
+
+## ✅ Benefits of Sidecar Approach
+
+- **Isolation** → Keeps logging separate from app logic.  
+- **Scalability** → Sidecar scales 1:1 with your app pod.  
+- **Flexibility** → Easily swap backends (OpenSearch, Elasticsearch, S3, etc.).  
+- **Lightweight** → Lower resource usage than Fluentd.  
+- **Configurability** → ConfigMap-driven updates, no need to rebuild app images.  
+
+---
+
+## 📦 Example Pod with Sidecar
+
+Here’s a sample pod running an app container (`hello-container`) alongside Fluent Bit as a sidecar:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-pod
+  namespace: logging
+spec:
+  containers:
+  - name: hello-container
+    image: busybox
+    command: ["sh", "-c"]
+    args:
+      - |
+        while true; do
+          echo "{\"timestamp\": \"$(date +%Y-%m-%dT%H:%M:%S%z)\", \"message\": \"Hello, OpenSearch Narendra!\"}" >> /var/log/hello/hello.log
+          sleep 5
+        done
+    volumeMounts:
+    - name: logs
+      mountPath: /var/log/hello
+
+  - name: fluent-bit
+    image: fluent/fluent-bit:4.0.7
+    env:
+    - name: FLUENT_OPENSEARCH_HOST
+      value: "opensearch-cluster-master.opensearch.svc.cluster.local"
+    - name: FLUENT_OPENSEARCH_PORT
+      value: "9200"
+    - name: FLUENT_OPENSEARCH_USER
+      value: "admin"
+    - name: FLUENT_OPENSEARCH_PASSWORD
+      value: "YourStrongPassword123!"
+    volumeMounts:
+    - name: logs
+      mountPath: /var/log/hello
+    - name: fluent-bit-config
+      mountPath: /fluent-bit/etc/
+
+  volumes:
+  - name: logs
+    emptyDir: {}
+  - name: fluent-bit-config
+    configMap:
+      name: fluent-bit
+
